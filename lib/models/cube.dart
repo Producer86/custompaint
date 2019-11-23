@@ -1,6 +1,5 @@
 import 'package:custompaint/geom.dart';
 import 'package:custompaint/mesh_painter.dart';
-import 'package:vector_math/vector_math_64.dart';
 import 'package:flutter/material.dart';
 
 class Cube extends StatefulWidget {
@@ -15,23 +14,23 @@ class Cube extends StatefulWidget {
 class _CubeState extends State<Cube> with SingleTickerProviderStateMixin {
   final mesh = Mesh([
     // SOUTH
-    Triangle.points(Vector3(0, 0, 0), Vector3(0, 1, 0), Vector3(1, 1, 0)),
-    Triangle.points(Vector3(0, 0, 0), Vector3(1, 1, 0), Vector3(1, 0, 0)),
+    Triangle(Vec3d(0, 0, 0), Vec3d(0, 1, 0), Vec3d(1, 1, 0)),
+    Triangle(Vec3d(0, 0, 0), Vec3d(1, 1, 0), Vec3d(1, 0, 0)),
     // EAST
-    Triangle.points(Vector3(1, 0, 0), Vector3(1, 1, 0), Vector3(1, 1, 1)),
-    Triangle.points(Vector3(1, 0, 0), Vector3(1, 1, 1), Vector3(1, 0, 1)),
+    Triangle(Vec3d(1, 0, 0), Vec3d(1, 1, 0), Vec3d(1, 1, 1)),
+    Triangle(Vec3d(1, 0, 0), Vec3d(1, 1, 1), Vec3d(1, 0, 1)),
     // NORTH
-    Triangle.points(Vector3(1, 0, 1), Vector3(1, 1, 1), Vector3(0, 1, 1)),
-    Triangle.points(Vector3(1, 0, 1), Vector3(0, 1, 1), Vector3(0, 0, 1)),
+    Triangle(Vec3d(1, 0, 1), Vec3d(1, 1, 1), Vec3d(0, 1, 1)),
+    Triangle(Vec3d(1, 0, 1), Vec3d(0, 1, 1), Vec3d(0, 0, 1)),
     // WEST
-    Triangle.points(Vector3(0, 0, 1), Vector3(0, 1, 1), Vector3(0, 1, 0)),
-    Triangle.points(Vector3(0, 0, 1), Vector3(0, 1, 0), Vector3(0, 0, 0)),
+    Triangle(Vec3d(0, 0, 1), Vec3d(0, 1, 1), Vec3d(0, 1, 0)),
+    Triangle(Vec3d(0, 0, 1), Vec3d(0, 1, 0), Vec3d(0, 0, 0)),
     // TOP
-    Triangle.points(Vector3(0, 1, 0), Vector3(0, 1, 1), Vector3(1, 1, 1)),
-    Triangle.points(Vector3(0, 1, 0), Vector3(1, 1, 1), Vector3(1, 1, 0)),
+    Triangle(Vec3d(0, 1, 0), Vec3d(0, 1, 1), Vec3d(1, 1, 1)),
+    Triangle(Vec3d(0, 1, 0), Vec3d(1, 1, 1), Vec3d(1, 1, 0)),
     // BOTTOM
-    Triangle.points(Vector3(1, 0, 1), Vector3(0, 0, 1), Vector3(0, 0, 0)),
-    Triangle.points(Vector3(1, 0, 1), Vector3(0, 0, 0), Vector3(1, 0, 0)),
+    Triangle(Vec3d(1, 0, 1), Vec3d(0, 0, 1), Vec3d(0, 0, 0)),
+    Triangle(Vec3d(1, 0, 1), Vec3d(0, 0, 0), Vec3d(1, 0, 0)),
   ]);
   Animation<double> animation;
   AnimationController controller;

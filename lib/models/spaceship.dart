@@ -25,12 +25,12 @@ class _SpaceShipState extends State<SpaceShip>
 
     controller =
         AnimationController(duration: Duration(minutes: 1), vsync: this);
-    animation = Tween<double>(begin: 0, end: 75).animate(controller)
+    animation = Tween<double>(begin: 0, end: 25).animate(controller)
       ..addListener(() {
         setState(() {});
       });
     rootBundle.loadString('assets/VideoShip.obj').then((data) {
-      Mesh.fromFile(data).then((m) {
+      Mesh.fromObjText(data).then((m) {
         setState(() {
           mesh = m;
         });

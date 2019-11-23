@@ -2,108 +2,88 @@ import 'dart:math';
 import 'dart:ui';
 import 'package:custompaint/geom.dart';
 import 'package:flutter/material.dart';
-import 'package:vector_math/vector_math_64.dart' as _;
+import 'package:custompaint/vec_utils.dart';
 
 class MeshPainter extends CustomPainter {
-  Paint _paint;
-  Paint _wire;
+  Paint fillPaint;
+  Paint wirePaint;
   Matrix4 matProj;
+  Matrix4 matWorld;
   Mesh mesh;
-  double time;
-  Matrix4 matRotZ = Matrix4.zero();
-  Matrix4 matRotX = Matrix4.zero();
-  _.Vector3 camera = _.Vector3.zero();
-  _.Vector3 lightDirection = _.Vector3(0.0, 0.0, 1.0);
+  double tick;
+  Vec3d camera;
+  Matrix4 matCam;
+  Matrix4 matView;
+  Vec3d lookDir;
+  Vec3d target;
+  Vec3d lightDirection;
+  Vec3d viewOffset = Vec3d(1, 1, 0);
+  Vec3d upVec = Vec3d(0, 1, 0);
 
-  MeshPainter(this.mesh, this.matProj, this.time) {
-    _paint = Paint()
+  MeshPainter(this.mesh, this.matProj, this.tick) {
+    fillPaint = Paint()
       ..style = PaintingStyle.fill
       ..color = Colors.blue
       ..strokeWidth = 1.0
       ..strokeCap = StrokeCap.butt;
-    _wire = Paint()
+    wirePaint = Paint()
       ..color = Colors.black
       ..strokeWidth = 1.0
       ..strokeCap = StrokeCap.butt;
 
-    // hardcoded rotations for showcasing
-    matRotZ.setEntry(0, 0, cos(time));
-    matRotZ.setEntry(0, 1, sin(time));
-    matRotZ.setEntry(1, 0, -sin(time));
-    matRotZ.setEntry(1, 1, cos(time));
-    matRotZ.setEntry(2, 2, 1);
-    matRotZ.setEntry(3, 3, 1);
+    lightDirection = Vec3d(0, 1.0, -1.0);
+    lightDirection = vecNormal(lightDirection);
 
-    matRotX.setEntry(0, 0, 1);
-    matRotX.setEntry(1, 1, cos(time / 2));
-    matRotX.setEntry(1, 2, sin(time / 2));
-    matRotX.setEntry(2, 1, -sin(time / 2));
-    matRotX.setEntry(2, 2, cos(time / 2));
-    matRotX.setEntry(3, 3, 1);
+    camera = Vec3d();
+    camera.y += tick;
+    lookDir = Vec3d(0, 0, 1);
+    target = vecAdd(camera, lookDir);
+    matCam = matPointAt(camera, target, upVec);
+    matView = matQuickInvesre(matCam);
+
+    // set up rotations, translations
+    // final rotZ = makeRotationZ(tick / 2);
+    // final rotX = makeRotationX(tick);
+    final trans = makeTranslation(0, 0, 16);
+    matWorld = Matrix4.identity();
+    // matWorld = matXmat(rotZ, rotX);
+    matWorld = matXmat(matWorld, trans);
   }
 
   @override
   void paint(Canvas canvas, Size size) {
-    final trisToRaster = <ColoredTriangle>[];
+    final trisToRaster = <Triangle>[];
     for (var tri in mesh.tris) {
-      //rotate
-      // around Z
-      var p0 = multiplyMatrixVector(tri.point0, matRotZ);
-      var p1 = multiplyMatrixVector(tri.point1, matRotZ);
-      var p2 = multiplyMatrixVector(tri.point2, matRotZ);
-      // around X
-      p0 = multiplyMatrixVector(p0, matRotX);
-      p1 = multiplyMatrixVector(p1, matRotX);
-      p2 = multiplyMatrixVector(p2, matRotX);
-      //push it back a bit
-      p0.z += 10;
-      p1.z += 10;
-      p2.z += 10;
-      //calc normal
-      _.Vector3 normal = _.Vector3.zero();
-      _.Vector3 line1 = _.Vector3.zero();
-      _.Vector3 line2 = _.Vector3.zero();
-      line1.x = p1.x - p0.x;
-      line1.y = p1.y - p0.y;
-      line1.z = p1.z - p0.z;
-      line2.x = p2.x - p0.x;
-      line2.y = p2.y - p0.y;
-      line2.z = p2.z - p0.z;
-      normal.x = line1.y * line2.z - line1.z * line2.y;
-      normal.y = line1.z * line2.x - line1.x * line2.z;
-      normal.z = line1.x * line2.y - line1.y * line2.x;
-      final double nL =
-          sqrt(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z);
-      normal.x /= nL;
-      normal.y /= nL;
-      normal.z /= nL;
+      // rotate, translate
+      Vec3d p0 = matXvec(matWorld, tri.point0);
+      Vec3d p1 = matXvec(matWorld, tri.point1);
+      Vec3d p2 = matXvec(matWorld, tri.point2);
+      // calc normal
+      Vec3d line1 = vecSub(p1, p0);
+      Vec3d line2 = vecSub(p2, p0);
+      Vec3d normal = vecXvec(line1, line2);
+      normal = vecNormal(normal);
       // if camera can see it
-      if ((normal.x * (p0.x - camera.x) +
-              normal.y * (p0.y - camera.y) +
-              normal.z * (p0.z - camera.z)) <
-          0.0) {
+      Vec3d cameraRay = vecSub(p0, camera);
+      if (dotProd(normal, cameraRay) < 0.0) {
         // illuminate
-        final double lL = sqrt(lightDirection.x * lightDirection.x +
-            lightDirection.y * lightDirection.y +
-            lightDirection.z * lightDirection.z);
-        lightDirection.x /= lL;
-        lightDirection.y /= lL;
-        lightDirection.z /= lL;
-        final dp = normal.x * lightDirection.x +
-            normal.y * lightDirection.y +
-            normal.z * lightDirection.z;
-        final color = Color.lerp(Colors.blue[800], Colors.black, dp);
+        final dp = max(0.1, dotProd(lightDirection, normal));
+        final color = Color.lerp(Colors.blue, Colors.black, dp);
+        // convert from world space to view space
+        p0 = matXvec(matView, p0);
+        p1 = matXvec(matView, p1);
+        p2 = matXvec(matView, p2);
         // apply projection
-        p0 = multiplyMatrixVector(p0, matProj);
-        p1 = multiplyMatrixVector(p1, matProj);
-        p2 = multiplyMatrixVector(p2, matProj);
+        p0 = matXvec(matProj, p0);
+        p1 = matXvec(matProj, p1);
+        p2 = matXvec(matProj, p2);
+        p0 = vecDiv(p0, p0.w);
+        p1 = vecDiv(p1, p1.w);
+        p2 = vecDiv(p2, p2.w);
         // scale into view
-        p0.x += 1.0;
-        p0.y += 1.0;
-        p1.x += 1.0;
-        p1.y += 1.0;
-        p2.x += 1.0;
-        p2.y += 1.0;
+        p0 = vecAdd(p0, viewOffset);
+        p1 = vecAdd(p1, viewOffset);
+        p2 = vecAdd(p2, viewOffset);
         final oX = size.width / 2.0;
         final oY = size.height / 2.0;
         p0.x *= oX;
@@ -112,23 +92,20 @@ class MeshPainter extends CustomPainter {
         p1.y *= oY;
         p2.x *= oX;
         p2.y *= oY;
-        trisToRaster.add(ColoredTriangle(_.Triangle.points(p0, p1, p2), color));
+        trisToRaster.add(Triangle(p0, p1, p2, color));
       }
     }
 
     // no Z-buffering per pixel so just paint furthest first
-    trisToRaster.sort((ColoredTriangle t1, ColoredTriangle t2) {
-      final a = t1.trianlge;
-      final b = t2.trianlge;
-      double z1 = (a.point0.z + a.point1.z + a.point2.z) / 3.0;
-      double z2 = (b.point0.z + b.point1.z + b.point2.z) / 3.0;
-      return z1 > z2 ? -1 : z2 > z1 ? 1 : 0;
+    trisToRaster.sort((Triangle a, Triangle b) {
+      double az = (a.point0.z + a.point1.z + a.point2.z) / 3.0;
+      double bz = (b.point0.z + b.point1.z + b.point2.z) / 3.0;
+      return az > bz ? -1 : bz > az ? 1 : 0;
     });
 
     // rasterize
-    for (var coltri in trisToRaster) {
-      final tri = coltri.trianlge;
-      _paint.color = coltri.color;
+    for (var tri in trisToRaster) {
+      fillPaint.color = tri.color;
 
       final shape = Path();
       shape.addPolygon(
@@ -139,7 +116,7 @@ class MeshPainter extends CustomPainter {
         ],
         true,
       );
-      canvas.drawPath(shape, _paint);
+      canvas.drawPath(shape, fillPaint);
       // ***
       // canvas.drawVertices(
       //   Vertices(
@@ -152,7 +129,7 @@ class MeshPainter extends CustomPainter {
       //     ],
       //   ),
       //   BlendMode.srcOver,
-      //   _paint,
+      //   fillPaint,
       // );
       // ***
       // canvas.drawPoints(
@@ -163,13 +140,13 @@ class MeshPainter extends CustomPainter {
       //     Offset(tri.point2.x, tri.point2.y),
       //     Offset(tri.point0.x, tri.point0.y),
       //   ],
-      //   _wire,
+      //   wirePaint,
       // );
     }
   }
 
   @override
   bool shouldRepaint(MeshPainter oldDelegate) {
-    return oldDelegate.time != time;
+    return oldDelegate.tick != tick;
   }
 }
