@@ -1,4 +1,5 @@
 import 'dart:math' show sqrt, cos, sin, tan, pi;
+import 'package:flutter/material.dart';
 import 'package:vector_math/vector_math_64.dart' show Matrix4;
 
 import 'geom.dart';
@@ -102,7 +103,7 @@ Matrix4 matPointAt(Vec3d pos, Vec3d target, Vec3d up) {
   var forward = vecSub(target, pos);
   forward = vecNormal(forward);
 
-  var a = vecMul(forward, dotProd(up, forward));
+  var a = vecMul(forward, vecDotProd(up, forward));
   var newUp = vecSub(up, a);
   newUp = vecNormal(newUp);
 
@@ -175,12 +176,12 @@ Vec3d vecDiv(Vec3d v1, double k) {
   return Vec3d(v1.x / k, v1.y / k, v1.z / k);
 }
 
-double dotProd(Vec3d v1, Vec3d v2) {
+double vecDotProd(Vec3d v1, Vec3d v2) {
   return (v1.x * v2.x) + (v1.y * v2.y) + (v1.z * v2.z);
 }
 
 double vecLen(Vec3d v) {
-  return sqrt(dotProd(v, v));
+  return sqrt(vecDotProd(v, v));
 }
 
 Vec3d vecNormal(Vec3d v) {
@@ -194,4 +195,97 @@ Vec3d vecXvec(Vec3d v1, Vec3d v2) {
   v.y = v1.z * v2.x - v1.x * v2.z;
   v.z = v1.x * v2.y - v1.y * v2.x;
   return v;
+}
+
+Vec3d vecIntersectPlane(
+  Vec3d planePoint,
+  Vec3d planeNorm,
+  Vec3d lineStart,
+  Vec3d lineEnd,
+) {
+  final pNorm = vecNormal(planeNorm);
+  double planed = -vecDotProd(pNorm, planePoint);
+  double ad = vecDotProd(lineStart, pNorm);
+  double bd = vecDotProd(lineEnd, pNorm);
+  double t = (-planed - ad) / (bd - ad);
+  Vec3d lineStartToEnd = vecSub(lineEnd, lineStart);
+  Vec3d lineToIntersect = vecMul(lineStartToEnd, t);
+  return vecAdd(lineStart, lineToIntersect);
+}
+
+List<Triangle> triClipAgainstPlane(
+  Vec3d planePoint,
+  Vec3d planeNorm,
+  Triangle tri,
+) {
+  final pNorm = vecNormal(planeNorm);
+  // distance of p from our plane
+  final dist = (Vec3d p) =>
+      pNorm.x * p.x +
+      pNorm.y * p.y +
+      pNorm.z * p.z -
+      vecDotProd(pNorm, planePoint);
+  // store points as in or outside by sign of distance
+  final inside = <Vec3d>[];
+  final outside = <Vec3d>[];
+  // calc signed dist of each points
+  double d0 = dist(tri.point0);
+  double d1 = dist(tri.point1);
+  double d2 = dist(tri.point2);
+  if (d0.isNegative) {
+    outside.add(tri.point0);
+  } else {
+    inside.add(tri.point0);
+  }
+  if (d1.isNegative) {
+    outside.add(tri.point1);
+  } else {
+    inside.add(tri.point1);
+  }
+  if (d2.isNegative) {
+    outside.add(tri.point2);
+  } else {
+    inside.add(tri.point2);
+  }
+  // now classify triangle based on how many points are outside
+  if (inside.length == 0) {
+    return [];
+  }
+  if (inside.length == 3) {
+    return [tri];
+  }
+  if (inside.length == 1 && outside.length == 2) {
+    // in this case build one new triangle
+    return [
+      Triangle(
+        inside[0],
+        vecIntersectPlane(planePoint, pNorm, inside[0], outside[0]),
+        vecIntersectPlane(planePoint, pNorm, inside[0], outside[1]),
+        tri.color,
+        // Colors.blue,
+      )
+    ];
+  }
+  if (inside.length == 2 && outside.length == 1) {
+    // in this case we need 2 new triangles
+    final newPoint =
+        vecIntersectPlane(planePoint, pNorm, inside[0], outside[0]);
+    return [
+      Triangle(
+        inside[0],
+        inside[1],
+        newPoint,
+        tri.color,
+        // Colors.red,
+      ),
+      Triangle(
+        inside[1],
+        newPoint,
+        vecIntersectPlane(planePoint, pNorm, inside[1], outside[0]),
+        tri.color,
+        // Colors.green,
+      ),
+    ];
+  }
+  return [];
 }

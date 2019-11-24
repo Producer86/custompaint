@@ -1,9 +1,5 @@
-// import 'package:custompaint/models/cube.dart';
-// import 'package:custompaint/models/spaceship.dart';
-// import 'package:custompaint/models/teapot.dart';
-import 'package:custompaint/models/axis.dart';
+import 'package:custompaint/scene.dart';
 import 'package:flutter/material.dart';
-import 'package:custompaint/vec_utils.dart';
 
 void main() => runApp(MyApp());
 
@@ -30,13 +26,17 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     final fAspectRatio =
         MediaQuery.of(context).size.height / MediaQuery.of(context).size.width;
-    final matProj = makeProjection(90, fAspectRatio, 0.1, 1000);
 
     return Scaffold(
-      body: Center(
-        child: AspectRatio(
-          aspectRatio: 1 / fAspectRatio,
-          child: Teapot(matProj),
+      body: SafeArea(
+        child: Center(
+          child: AspectRatio(
+            aspectRatio: 1 / fAspectRatio,
+            child: Scene(
+              aspectRatio: fAspectRatio,
+              worldData: 'assets/mountains.obj',
+            ),
+          ),
         ),
       ),
     );
