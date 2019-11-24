@@ -13,5 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:custompaint/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {});
+  test('experiments', () {
+    print([2, 14, 1, 26]..sort((a, b) => a - b));
+  });
 }

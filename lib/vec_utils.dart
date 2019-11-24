@@ -1,6 +1,8 @@
 import 'dart:math' show sqrt, cos, sin, tan, pi;
-import 'package:flutter/material.dart';
+import 'dart:ui';
+import 'package:flutter/material.dart' show Color, Paint, Canvas;
 import 'package:vector_math/vector_math_64.dart' show Matrix4;
+import 'package:image/image.dart' show Image;
 
 import 'geom.dart';
 
@@ -197,7 +199,14 @@ Vec3d vecXvec(Vec3d v1, Vec3d v2) {
   return v;
 }
 
-Vec3d vecIntersectPlane(
+class _IntersectInfo {
+  Vec3d vec;
+  double t;
+
+  _IntersectInfo(this.vec, this.t);
+}
+
+_IntersectInfo vecIntersectPlane(
   Vec3d planePoint,
   Vec3d planeNorm,
   Vec3d lineStart,
@@ -210,7 +219,7 @@ Vec3d vecIntersectPlane(
   double t = (-planed - ad) / (bd - ad);
   Vec3d lineStartToEnd = vecSub(lineEnd, lineStart);
   Vec3d lineToIntersect = vecMul(lineStartToEnd, t);
-  return vecAdd(lineStart, lineToIntersect);
+  return _IntersectInfo(vecAdd(lineStart, lineToIntersect), t);
 }
 
 List<Triangle> triClipAgainstPlane(
@@ -226,66 +235,263 @@ List<Triangle> triClipAgainstPlane(
       pNorm.z * p.z -
       vecDotProd(pNorm, planePoint);
   // store points as in or outside by sign of distance
-  final inside = <Vec3d>[];
-  final outside = <Vec3d>[];
+  final insidePnts = <Vec3d>[];
+  final outsidePnts = <Vec3d>[];
+  final insideTexs = <Vec2d>[];
+  final outsideTexs = <Vec2d>[];
   // calc signed dist of each points
   double d0 = dist(tri.point0);
   double d1 = dist(tri.point1);
   double d2 = dist(tri.point2);
   if (d0.isNegative) {
-    outside.add(tri.point0);
+    outsidePnts.add(tri.point0);
+    if (tri.tex0 != null) {
+      outsideTexs.add(tri.tex0);
+    }
   } else {
-    inside.add(tri.point0);
+    insidePnts.add(tri.point0);
+    if (tri.tex0 != null) {
+      insideTexs.add(tri.tex0);
+    }
   }
   if (d1.isNegative) {
-    outside.add(tri.point1);
+    outsidePnts.add(tri.point1);
+    if (tri.tex1 != null) {
+      outsideTexs.add(tri.tex1);
+    }
   } else {
-    inside.add(tri.point1);
+    insidePnts.add(tri.point1);
+    if (tri.tex1 != null) {
+      insideTexs.add(tri.tex1);
+    }
   }
   if (d2.isNegative) {
-    outside.add(tri.point2);
+    outsidePnts.add(tri.point2);
+    if (tri.tex2 != null) {
+      outsideTexs.add(tri.tex2);
+    }
   } else {
-    inside.add(tri.point2);
+    insidePnts.add(tri.point2);
+    if (tri.tex2 != null) {
+      insideTexs.add(tri.tex2);
+    }
   }
   // now classify triangle based on how many points are outside
-  if (inside.length == 0) {
+  if (insidePnts.length == 0) {
     return [];
   }
-  if (inside.length == 3) {
+  if (insidePnts.length == 3) {
     return [tri];
   }
-  if (inside.length == 1 && outside.length == 2) {
+  if (insidePnts.length == 1 && outsidePnts.length == 2) {
     // in this case build one new triangle
+    final i0 =
+        vecIntersectPlane(planePoint, pNorm, insidePnts[0], outsidePnts[0]);
+    final i1 =
+        vecIntersectPlane(planePoint, pNorm, insidePnts[0], outsidePnts[1]);
+    Vec2d t0;
+    Vec2d t1;
+    Vec2d t2;
+    // if model has texture coordinates clip those too
+    if (insideTexs.length == 1 && outsideTexs.length == 2) {
+      t0 = insideTexs[0];
+      t1 = Vec2d(
+        i0.t * (outsideTexs[0].u - insideTexs[0].u) + insideTexs[0].u,
+        i0.t * (outsideTexs[0].v - insideTexs[0].v) + insideTexs[0].v,
+      );
+      t2 = Vec2d(
+        i1.t * (outsideTexs[1].u - insideTexs[0].u) + insideTexs[0].u,
+        i1.t * (outsideTexs[1].v - insideTexs[0].v) + insideTexs[0].v,
+      );
+    }
     return [
       Triangle(
-        inside[0],
-        vecIntersectPlane(planePoint, pNorm, inside[0], outside[0]),
-        vecIntersectPlane(planePoint, pNorm, inside[0], outside[1]),
+        insidePnts[0],
+        i0.vec,
+        i1.vec,
         tri.color,
-        // Colors.blue,
+        t0,
+        t1,
+        t2,
       )
     ];
   }
-  if (inside.length == 2 && outside.length == 1) {
+  if (insidePnts.length == 2 && outsidePnts.length == 1) {
     // in this case we need 2 new triangles
-    final newPoint =
-        vecIntersectPlane(planePoint, pNorm, inside[0], outside[0]);
+    final commonPoint =
+        vecIntersectPlane(planePoint, pNorm, insidePnts[0], outsidePnts[0]);
+    final i0 =
+        vecIntersectPlane(planePoint, pNorm, insidePnts[1], outsidePnts[0]);
+    Vec2d t0t0;
+    Vec2d t0t1;
+    Vec2d t0t2;
+    Vec2d t1t0;
+    Vec2d t1t1;
+    Vec2d t1t2;
+    if (insideTexs.length == 2 && outsideTexs.length == 1) {
+      t0t0 = insideTexs[0];
+      t0t1 = insideTexs[1];
+      t0t2 = Vec2d(
+        commonPoint.t * (outsideTexs[0].u - insideTexs[0].u) + insideTexs[0].u,
+        commonPoint.t * (outsideTexs[0].v - insideTexs[0].v) + insideTexs[0].v,
+      );
+      t1t0 = insideTexs[1];
+      t1t0 = t0t2;
+      t1t2 = Vec2d(
+        i0.t * (outsideTexs[0].u - insideTexs[1].u) + insideTexs[1].u,
+        i0.t * (outsideTexs[0].v - insideTexs[1].v) + insideTexs[1].v,
+      );
+    }
     return [
       Triangle(
-        inside[0],
-        inside[1],
-        newPoint,
+        insidePnts[0],
+        insidePnts[1],
+        commonPoint.vec,
         tri.color,
-        // Colors.red,
+        t0t0,
+        t0t1,
+        t0t2,
       ),
       Triangle(
-        inside[1],
-        newPoint,
-        vecIntersectPlane(planePoint, pNorm, inside[1], outside[0]),
+        insidePnts[1],
+        commonPoint.vec,
+        i0.vec,
         tri.color,
-        // Colors.green,
+        t1t0,
+        t1t1,
+        t1t2,
       ),
     ];
   }
   return [];
+}
+
+class TexPoint {
+  int x;
+  int y;
+  double u;
+  double v;
+
+  TexPoint(this.x, this.y, this.u, this.v);
+}
+
+void drawTexturedTriangle(TexPoint point1, TexPoint point2, TexPoint point3,
+    Image img, Canvas canvas, Paint paint) {
+  final p = <TexPoint>[point1, point2, point3];
+  // order points by Y value descending
+  p.sort((TexPoint a, TexPoint b) => a.y - b.y);
+  // calc gradient values
+  int dy1 = p[1].y - p[0].y;
+  int dx1 = p[1].x - p[0].x;
+  double du1 = p[1].u - p[0].u;
+  double dv1 = p[1].v - p[0].v;
+
+  int dy2 = p[2].y - p[1].y;
+  int dx2 = p[2].x - p[1].x;
+  double du2 = p[2].u - p[1].u;
+  double dv2 = p[2].v - p[1].v;
+
+  double daxStep = 0;
+  double dbxStep = 0;
+  double du1Step = 0;
+  double dv1Step = 0;
+  double du2Step = 0;
+  double dv2Step = 0;
+
+  if (dy1 != 0) {
+    final dy = dy1.abs();
+    daxStep = dx1 / dy;
+    du1Step = du1 / dy;
+    dv1Step = dv1 / dy;
+  }
+  if (dy2 != 0) {
+    final dy = dy2.abs();
+    dbxStep = dx2 / dy;
+    du2Step = du2 / dy;
+    dv2Step = dv2 / dy;
+  }
+
+  double texU;
+  double texV;
+
+  // then start drawing from top to bottom
+  if (dy1 != 0) {
+    for (var i = p[0].y; i < p[1].y; i++) {
+      int ax = p[0].x + ((i - p[0].y) * daxStep).toInt();
+      int bx = p[0].x + ((i - p[0].y) * dbxStep).toInt();
+      double startU = p[0].u + (i - p[0].y) * du1Step;
+      double startV = p[0].v + (i - p[0].y) * dv1Step;
+      double endU = p[0].u + (i - p[0].y) * du2Step;
+      double endV = p[0].v + (i - p[0].y) * dv2Step;
+
+      if (ax > bx) {
+        int tempi = ax;
+        ax = bx;
+        bx = tempi;
+        double tempf = startU;
+        startU = endU;
+        endU = tempf;
+        tempf = startV;
+        startV = endV;
+        endV = tempf;
+      }
+
+      double tstep = 1 / (bx - ax);
+      double t = 0;
+
+      for (var j = ax; j < bx; j++) {
+        texU = (1 - t) * startU + t * endU;
+        texV = (1 - t) * startV + t * endV;
+        paint.color = Color(img.getPixelLinear(texU, texV));
+        canvas.drawPoints(
+            PointMode.points, [Offset(j.toDouble(), i.toDouble())], paint);
+        t += tstep;
+      }
+    }
+    // halfway there, now the bottom half
+    dy1 = p[2].y - p[1].y;
+    dx1 = p[2].x - p[1].x;
+    du1 = p[2].u - p[1].u;
+    dv1 = p[2].v - p[1].v;
+
+    if (dy1 != 0) {
+      final dy = dy1.abs();
+      daxStep = dx1 / dy;
+      du1Step = du1 / dy;
+      dv1Step = dv1 / dy;
+    }
+
+    for (var i = p[1].y; i < p[2].y; i++) {
+      int ax = p[1].x + ((i - p[1].y) * daxStep).toInt();
+      int bx = p[0].x + ((i - p[0].y) * dbxStep).toInt();
+      double startU = p[1].u + (i - p[1].y) * du1Step;
+      double startV = p[1].v + (i - p[1].y) * dv1Step;
+      double endU = p[0].u + (i - p[0].y) * du2Step;
+      double endV = p[0].v + (i - p[0].y) * dv2Step;
+
+      if (ax > bx) {
+        int tempi = ax;
+        ax = bx;
+        bx = tempi;
+        double tempf = startU;
+        startU = endU;
+        endU = tempf;
+        tempf = startV;
+        startV = endV;
+        endV = tempf;
+      }
+
+      double tstep = 1 / (bx - ax);
+      double t = 0;
+
+      for (var j = ax; j < bx; j++) {
+        texU = (1 - t) * startU + t * endU;
+        texV = (1 - t) * startV + t * endV;
+        paint.color = Color(img.getPixelLinear(texU, texV));
+        canvas.drawPoints(
+            PointMode.points, [Offset(j.toDouble(), i.toDouble())], paint);
+        t += tstep;
+      }
+    }
+  }
 }

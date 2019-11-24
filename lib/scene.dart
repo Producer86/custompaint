@@ -1,9 +1,11 @@
 import 'package:custompaint/camera.dart';
+import 'package:custompaint/cube.dart';
 import 'package:custompaint/geom.dart';
 import 'package:custompaint/scene_painter.dart';
 import 'package:custompaint/vec_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image/image.dart' as img;
 
 class Scene extends StatefulWidget {
   final double aspectRatio;
@@ -18,6 +20,7 @@ class Scene extends StatefulWidget {
 class _SceneState extends State<Scene> with SingleTickerProviderStateMixin {
   Matrix4 matProj;
   Mesh world;
+  img.Image tex;
   FPSCamera camera;
   Animation<double> animation;
   AnimationController controller;
@@ -33,14 +36,18 @@ class _SceneState extends State<Scene> with SingleTickerProviderStateMixin {
         setState(() {});
       });
     // load world data
-    rootBundle.loadString(widget.worldData).then((data) {
-      Mesh.fromObjText(data).then((m) {
-        setState(() {
-          world = m;
-        });
-        controller.repeat();
+    // rootBundle.loadString(widget.worldData).then((data) {
+    //   Mesh.fromObjText(data).then((m) {
+    rootBundle.load('assets/brick.webp').then((ByteData texData) {
+      final texImg = img.decodeImage(texData.buffer.asUint8List());
+      setState(() {
+        world = cube;
+        tex = texImg;
       });
+      controller.repeat();
     });
+    //   });
+    // });
     // set up camera
     camera = FPSCamera(Vec3d(), Vec3d(0, 0, 1), Vec3d(0, 1, 0));
     matProj = makeProjection(90, widget.aspectRatio, 0.1, 1000);
@@ -70,7 +77,7 @@ class _SceneState extends State<Scene> with SingleTickerProviderStateMixin {
         }
       },
       child: CustomPaint(
-        painter: ScenePainter(world, matProj, camera, animation.value),
+        painter: ScenePainter(world, tex, matProj, camera, animation.value),
       ),
     );
   }

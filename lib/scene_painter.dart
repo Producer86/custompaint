@@ -5,6 +5,7 @@ import 'package:custompaint/camera.dart';
 import 'package:custompaint/geom.dart';
 import 'package:flutter/material.dart';
 import 'package:custompaint/vec_utils.dart';
+import 'package:image/image.dart' as img;
 
 class ScenePainter extends CustomPainter {
   Paint fillPaint;
@@ -13,11 +14,12 @@ class ScenePainter extends CustomPainter {
   Matrix4 matWorld;
   Camera camera;
   Mesh mesh;
+  img.Image texture;
   double tick;
   Vec3d lightDirection;
   Vec3d viewOffset = Vec3d(1, 1, 0);
 
-  ScenePainter(this.mesh, this.matProj, this.camera, this.tick) {
+  ScenePainter(this.mesh, this.texture, this.matProj, this.camera, this.tick) {
     fillPaint = Paint()
       ..style = PaintingStyle.fill
       ..color = Colors.blue
@@ -64,7 +66,8 @@ class ScenePainter extends CustomPainter {
         p1 = matXvec(camera.viewMatrix, p1);
         p2 = matXvec(camera.viewMatrix, p2);
         // clip against the near plane
-        final triangle = Triangle(p0, p1, p2, color);
+        final triangle =
+            Triangle(p0, p1, p2, color, tri.tex0, tri.tex1, tri.tex2);
         final clipped =
             triClipAgainstPlane(Vec3d(0, 0, 0.1), Vec3d(0, 0, 1), triangle);
         for (var tri in clipped) {

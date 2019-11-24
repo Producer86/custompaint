@@ -8,13 +8,23 @@ class Vec3d {
   Vec3d([this.x = 0.0, this.y = 0.0, this.z = 0.0, this.w = 1.0]);
 }
 
+class Vec2d {
+  double u;
+  double v;
+  Vec2d([this.u, this.v]);
+}
+
 class Triangle {
   Vec3d point0;
   Vec3d point1;
   Vec3d point2;
+  Vec2d tex0;
+  Vec2d tex1;
+  Vec2d tex2;
   Color color;
 
-  Triangle(this.point0, this.point1, this.point2, [this.color]);
+  Triangle(this.point0, this.point1, this.point2,
+      [this.color, this.tex0, this.tex1, this.tex2]);
 }
 
 class Mesh {
