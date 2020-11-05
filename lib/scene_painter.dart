@@ -143,23 +143,33 @@ class ScenePainter extends CustomPainter {
         numNewTris = triQueue.length;
       }
       for (Triangle t in triQueue) {
-        fillPaint.color = t.color;
-        final shape = Path();
-        shape.moveTo(t.point0.x, t.point0.y);
-        shape.lineTo(t.point1.x, t.point1.y);
-        shape.lineTo(t.point2.x, t.point2.y);
-        shape.close();
-        canvas.drawPath(shape, fillPaint);
-        // canvas.drawPoints(
-        //   PointMode.polygon,
-        //   [
-        //     Offset(t.point0.x, t.point0.y),
-        //     Offset(t.point1.x, t.point1.y),
-        //     Offset(t.point2.x, t.point2.y),
-        //     Offset(t.point0.x, t.point0.y),
-        //   ],
-        //   wirePaint,
-        // );
+        drawTexturedTriangle(
+          TexPoint(t.point0.x.toInt(), t.point0.y.toInt(), t.tex0.u, t.tex0.v),
+          TexPoint(t.point1.x.toInt(), t.point1.y.toInt(), t.tex1.u, t.tex1.v),
+          TexPoint(t.point2.x.toInt(), t.point2.y.toInt(), t.tex2.u, t.tex2.v),
+          texture,
+          canvas,
+          fillPaint,
+        );
+
+        // fillPaint.color = t.color;
+        // final shape = Path();
+        // shape.moveTo(t.point0.x, t.point0.y);
+        // shape.lineTo(t.point1.x, t.point1.y);
+        // shape.lineTo(t.point2.x, t.point2.y);
+        // shape.close();
+        // canvas.drawPath(shape, fillPaint);
+        // ***
+        canvas.drawPoints(
+          PointMode.polygon,
+          [
+            Offset(t.point0.x, t.point0.y),
+            Offset(t.point1.x, t.point1.y),
+            Offset(t.point2.x, t.point2.y),
+            Offset(t.point0.x, t.point0.y),
+          ],
+          wirePaint,
+        );
       }
     }
   }

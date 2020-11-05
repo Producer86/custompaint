@@ -379,7 +379,7 @@ void drawTexturedTriangle(TexPoint point1, TexPoint point2, TexPoint point3,
     Image img, Canvas canvas, Paint paint) {
   final p = <TexPoint>[point1, point2, point3];
   // order points by Y value descending
-  p.sort((TexPoint a, TexPoint b) => a.y - b.y);
+  p.sort((TexPoint a, TexPoint b) => b.y - a.y);
   // calc gradient values
   int dy1 = p[1].y - p[0].y;
   int dx1 = p[1].x - p[0].x;

@@ -24,6 +24,7 @@ class _SceneState extends State<Scene> with SingleTickerProviderStateMixin {
   FPSCamera camera;
   Animation<double> animation;
   AnimationController controller;
+  bool canStart = false;
 
   @override
   void initState() {
@@ -40,11 +41,12 @@ class _SceneState extends State<Scene> with SingleTickerProviderStateMixin {
     //   Mesh.fromObjText(data).then((m) {
     rootBundle.load('assets/brick.webp').then((ByteData texData) {
       final texImg = img.decodeImage(texData.buffer.asUint8List());
+      controller.repeat();
       setState(() {
         world = cube;
         tex = texImg;
+        canStart = true;
       });
-      controller.repeat();
     });
     //   });
     // });
@@ -61,7 +63,7 @@ class _SceneState extends State<Scene> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    if (world == null) return Container();
+    if (!canStart) return Container();
     return GestureDetector(
       onHorizontalDragUpdate: (details) {
         camera.turn(details.delta.dx * 0.005);
